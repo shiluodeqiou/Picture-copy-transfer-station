@@ -13,6 +13,26 @@ def generate_suffix():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=6))
 
 
+class DragDropLineEdit(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls and urls[0].isLocalFile():
+            path = urls[0].toLocalFile()
+            if os.path.isdir(path):
+                self.setText(path)
+        event.acceptProposedAction()
+
+
 class FileDropArea(QGroupBox):
     filesDropped = pyqtSignal(list)
 
@@ -133,7 +153,7 @@ class DropZoneWidget(QWidget):
         self.drop_area.filesDropped.connect(self.handle_files_dropped)
 
         self.output_layout = QHBoxLayout()
-        self.output_path = QLineEdit()
+        self.output_path = DragDropLineEdit()
         self.output_path.setPlaceholderText("选择输出目录...")
         self.browse_btn = QPushButton("浏览...")
         self.browse_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
@@ -188,7 +208,7 @@ class DropZoneWidget(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("文件复制工具")
+        self.setWindowTitle("文件复制中转站")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("""
             QMainWindow {
