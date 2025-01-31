@@ -125,6 +125,7 @@
   ('pathlib', 'E:\\python\\Lib\\pathlib.py', 'PYMODULE'),
   ('pickle', 'E:\\python\\Lib\\pickle.py', 'PYMODULE'),
   ('pkgutil', 'E:\\python\\Lib\\pkgutil.py', 'PYMODULE'),
+  ('platform', 'E:\\python\\Lib\\platform.py', 'PYMODULE'),
   ('pprint', 'E:\\python\\Lib\\pprint.py', 'PYMODULE'),
   ('py_compile', 'E:\\python\\Lib\\py_compile.py', 'PYMODULE'),
   ('quopri', 'E:\\python\\Lib\\quopri.py', 'PYMODULE'),
@@ -147,5 +148,6 @@
   ('typing', 'E:\\python\\Lib\\typing.py', 'PYMODULE'),
   ('urllib', 'E:\\python\\Lib\\urllib\\__init__.py', 'PYMODULE'),
   ('urllib.parse', 'E:\\python\\Lib\\urllib\\parse.py', 'PYMODULE'),
+  ('uuid', 'E:\\python\\Lib\\uuid.py', 'PYMODULE'),
   ('zipfile', 'E:\\python\\Lib\\zipfile.py', 'PYMODULE'),
   ('zipimport', 'E:\\python\\Lib\\zipimport.py', 'PYMODULE')])

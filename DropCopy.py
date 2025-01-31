@@ -168,6 +168,7 @@ class CopyWorker(QRunnable):
 
 class DropZoneWidget(QWidget):
     """文件拖放区域控件"""
+    deleted = pyqtSignal()  # 新增删除信号
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -211,6 +212,20 @@ class DropZoneWidget(QWidget):
         self.sort_files_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
         self.sort_files_btn.clicked.connect(self.sort_files)
 
+        # 在DropZoneWidget的output_layout部分添加按钮
+        self.import_btn = QPushButton("导入")
+        self.export_btn = QPushButton("导出")
+        self.import_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
+        self.export_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
+
+        # 将按钮添加到布局中（在原有按钮之后）
+        self.output_layout.addWidget(self.import_btn)
+        self.output_layout.addWidget(self.export_btn)
+
+        # 连接按钮信号
+        self.import_btn.clicked.connect(self.import_paths)
+        self.export_btn.clicked.connect(self.export_paths)
+
         self.show_preview_checkbox = QCheckBox("显示文件预览")
         self.show_preview_checkbox.setChecked(False)
         self.show_preview_checkbox.setEnabled(False)
@@ -235,6 +250,167 @@ class DropZoneWidget(QWidget):
         self.setLayout(layout)
 
         self.output_path.textChanged.connect(self.update_drop_area_label)
+
+# 添加新的方法实现
+    def import_paths(self):
+        """从文件导入路径"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择路径文件",
+            "",
+            "文本文件 (*.txt);;所有文件 (*)"
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                candidates = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            QMessageBox.critical(self, "导入失败", f"无法读取文件: {str(e)}")
+            return
+
+        valid_files = []
+        invalid_files = []
+        existing_files = set(self.files)
+
+        for candidate in candidates:
+            if not os.path.isfile(candidate):
+                invalid_files.append(candidate)
+                continue
+            if candidate not in existing_files:
+                valid_files.append(candidate)
+                existing_files.add(candidate)
+
+        if valid_files:
+            self.files.extend(valid_files)
+            self.file_list.addItems([os.path.basename(f) for f in valid_files])
+            self.update_drop_area_label()
+            self.show_preview_checkbox.setEnabled(True)
+
+        report = []
+        if valid_files:
+            report.append(f"成功导入 {len(valid_files)} 个文件")
+        if invalid_files:
+            report.append(f"忽略 {len(invalid_files)} 个无效路径")
+        
+        if report:
+            QMessageBox.information(
+                self,
+                "导入结果",
+                "\n".join(report),
+                QMessageBox.Ok
+            )
+
+    def export_paths(self):
+        """导出路径到文件"""
+        if not self.files:
+            QMessageBox.warning(self, "警告", "当前区域没有可导出的文件路径")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "保存路径文件",
+            f"文件路径_{time.strftime('%Y%m%d%H%M%S')}.txt",
+            "文本文件 (*.txt);;所有文件 (*)"
+        )
+        if not path:
+            return
+
+        # 获取当前输出路径
+        output_dir = self.output_path.text().strip()
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                # 写入输出路径作为第一行
+                f.write(output_dir + "\n")
+                # 写入文件路径
+                f.write("\n".join(self.files))
+            QMessageBox.information(
+                self,
+                "导出成功",
+                f"路径已保存到:\n{path}",
+                QMessageBox.Ok
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "导出失败",
+                f"保存文件时出错:\n{str(e)}",
+                QMessageBox.Ok
+            )
+
+    def import_paths(self):
+        """从文件导入路径"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择路径文件",
+            "",
+            "文本文件 (*.txt);;所有文件 (*)"
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            QMessageBox.critical(self, "导入失败", f"无法读取文件: {str(e)}")
+            return
+
+        if not lines:
+            QMessageBox.warning(self, "导入失败", "文件为空")
+            return
+
+        # 第一行是输出路径候选
+        output_dir_candidate = lines[0]
+        file_candidates = lines[1:] if len(lines) > 1 else []
+
+        # 询问用户是否应用该输出路径
+        reply = QMessageBox.question(
+            self,
+            "导入输出路径",
+            f"导出文件中包含的输出路径为：{output_dir_candidate}\n是否应用此路径到当前区域？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        if reply == QMessageBox.Yes:
+            self.output_path.setText(output_dir_candidate)
+
+        # 处理文件路径
+        valid_files = []
+        invalid_files = []
+        existing_files = set(self.files)
+
+        for candidate in file_candidates:
+            if not os.path.isfile(candidate):
+                invalid_files.append(candidate)
+                continue
+            if candidate not in existing_files:
+                valid_files.append(candidate)
+                existing_files.add(candidate)
+
+        if valid_files:
+            self.files.extend(valid_files)
+            self.file_list.addItems([os.path.basename(f) for f in valid_files])
+            self.update_drop_area_label()
+            self.show_preview_checkbox.setEnabled(True)
+
+        report = []
+        if reply == QMessageBox.Yes:
+            report.append(f"已应用输出路径：{output_dir_candidate}")
+        if valid_files:
+            report.append(f"成功导入 {len(valid_files)} 个文件")
+        if invalid_files:
+            report.append(f"忽略 {len(invalid_files)} 个无效路径")
+        
+        if report:
+            QMessageBox.information(
+                self,
+                "导入结果",
+                "\n".join(report),
+                QMessageBox.Ok
+            )
 
     def update_drop_area_label(self):
         """更新拖放区域标签"""
@@ -281,6 +457,7 @@ class DropZoneWidget(QWidget):
         ):
             self.setParent(None)
             self.deleteLater()
+            self.deleted.emit()  # 发射删除信号
 
     def select_files(self):
         """批量选择文件"""
@@ -308,13 +485,22 @@ class DropZoneWidget(QWidget):
         """显示右键菜单"""
         index = self.file_list.indexAt(pos)
         if index.isValid():
-            menu = QMenu(self)
+            menu = QMenu(self)  # 必须先创建menu实例
+            # 创建菜单项
             delete_action = QAction("删除", self)
-            delete_action.triggered.connect(lambda: self.delete_file(index.row()))
-            menu.addAction(delete_action)
             copy_path_action = QAction("复制路径", self)
-            copy_path_action.triggered.connect(lambda: self.copy_file_path(index.row()))
+            export_action = QAction("导出所有路径", self)
+            
+            # 添加动作
+            menu.addAction(delete_action)
             menu.addAction(copy_path_action)
+            menu.addAction(export_action)
+            
+            # 连接信号
+            delete_action.triggered.connect(lambda: self.delete_file(index.row()))
+            copy_path_action.triggered.connect(lambda: self.copy_file_path(index.row()))
+            export_action.triggered.connect(self.export_paths)
+            
             menu.exec_(self.file_list.mapToGlobal(pos))
 
     def delete_file(self, row):
@@ -345,7 +531,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("文件复制中转站")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 600)
+        self.drop_zones = []
         self.setStyleSheet(
             """
             QMainWindow {
@@ -424,6 +611,13 @@ class MainWindow(QMainWindow):
         zone = DropZoneWidget()
         self.drop_zones.append(zone)
         self.scroll_layout.addWidget(zone)
+        zone.deleted.connect(lambda: self.remove_drop_zone(zone))  # 连接信号
+
+    def remove_drop_zone(self, zone):
+        """处理区域删除"""
+        if zone in self.drop_zones:
+            self.drop_zones.remove(zone)  # 从列表中移除
+        zone.deleteLater()  # 确保控件被销毁
 
     def start_copy(self):
         """开始复制文件"""
