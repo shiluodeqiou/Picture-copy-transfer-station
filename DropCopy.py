@@ -38,13 +38,15 @@ class FileDropArea(QGroupBox):
 
     def __init__(self, title):
         super().__init__(title)
-        self.setAcceptDrops(True)
+        self.setAcceptDrops(True)  # 关键修复：启用拖放支持
+        # 修改样式增加内边距
         self.setStyleSheet("""
             QGroupBox {
                 border: 2px dashed #aaa;
                 border-radius: 8px;
                 background-color: #f8f9fa;
                 margin-top: 1ex;
+                padding: 20px 0;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -53,12 +55,13 @@ class FileDropArea(QGroupBox):
                 color: #6c757d;
             }
         """)
-        self.setMinimumSize(400, 150)
-
-        layout = QVBoxLayout()
         self.label = QLabel("拖放文件到这里")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet("color: #6c757d; font-size: 14px;")
+
+        self.setMinimumSize(400, 150)
+
+        layout = QVBoxLayout()
         layout.addWidget(self.label)
         self.setLayout(layout)
 
@@ -185,7 +188,8 @@ class DropZoneWidget(QWidget):
         self.sort_files_btn.clicked.connect(self.sort_files)
 
         self.show_preview_checkbox = QCheckBox("显示文件预览")
-        self.show_preview_checkbox.setChecked(True)
+        self.show_preview_checkbox.setChecked(False)
+        self.show_preview_checkbox.setEnabled(False)
         self.show_preview_checkbox.stateChanged.connect(self.toggle_preview)
 
         self.output_layout.addWidget(self.output_path)
@@ -199,11 +203,23 @@ class DropZoneWidget(QWidget):
         self.file_list = QListWidget()
         self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self.show_context_menu)
+        self.file_list.hide()
 
         layout.addWidget(self.drop_area)
         layout.addLayout(self.output_layout)
         layout.addWidget(self.file_list)
         self.setLayout(layout)
+
+        self.output_path.textChanged.connect(self.update_drop_area_label)
+
+    def update_drop_area_label(self):
+        output_path = self.output_path.text()
+        file_count = len(self.files)
+
+        path_info = f"输出到：{output_path}" if output_path else "⚠️ 未设置输出目录"
+        count_info = f"已选择 {file_count} 个文件" if file_count > 0 else "拖放文件到这里"
+
+        self.drop_area.label.setText(f"{path_info}\n{count_info}")
 
     def handle_files_dropped(self, new_files):
         existing = set(self.files)
@@ -213,14 +229,17 @@ class DropZoneWidget(QWidget):
             return
 
         self.files.extend(added)
-        self.drop_area.label.setText(f"已选择 {len(self.files)} 个文件")
+        self.update_drop_area_label()
         for file in added:
             self.file_list.addItem(os.path.basename(file))
+        if added:
+            self.show_preview_checkbox.setEnabled(True)
 
     def select_output_path(self):
         path = QFileDialog.getExistingDirectory(self, "选择输出目录")
         if path:
             self.output_path.setText(path)
+            self.update_drop_area_label()
 
     def delete_self(self):
         if QMessageBox.question(
@@ -238,8 +257,9 @@ class DropZoneWidget(QWidget):
 
     def clear_files(self):
         self.files = []
-        self.drop_area.label.setText("拖放文件到这里")
         self.file_list.clear()
+        self.update_drop_area_label()
+        self.show_preview_checkbox.setEnabled(False)
 
     def sort_files(self):
         self.files.sort()
@@ -262,7 +282,9 @@ class DropZoneWidget(QWidget):
     def delete_file(self, row):
         file = self.files.pop(row)
         self.file_list.takeItem(row)
-        self.drop_area.label.setText(f"已选择 {len(self.files)} 个文件")
+        self.update_drop_area_label()
+        if not self.files:
+            self.show_preview_checkbox.setEnabled(False)
 
     def copy_file_path(self, row):
         file = self.files[row]
@@ -310,7 +332,6 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        # 加载图标文件
         icon_path = "app.ico"
         if os.path.exists(icon_path):
             icon = QIcon(icon_path)
@@ -321,7 +342,6 @@ class MainWindow(QMainWindow):
 
         self.layout = QVBoxLayout()
 
-        # 控制按钮
         self.control_layout = QHBoxLayout()
         self.add_zone_btn = QPushButton("➕ 添加区域")
         self.copy_btn = QPushButton("🚀 开始复制")
@@ -329,13 +349,11 @@ class MainWindow(QMainWindow):
         self.control_layout.addStretch()
         self.control_layout.addWidget(self.copy_btn)
 
-        # 进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(24)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
-        # 创建滚动区域
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QWidget()
@@ -347,12 +365,10 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.scroll_area)
         self.main_widget.setLayout(self.layout)
 
-        # 信号连接
         self.add_zone_btn.clicked.connect(self.add_drop_zone)
         self.copy_btn.clicked.connect(self.start_copy)
         self.thread_pool = QThreadPool.globalInstance()
 
-        # 初始化
         self.drop_zones = []
         self.add_drop_zone()
         self.errors = []
@@ -367,7 +383,6 @@ class MainWindow(QMainWindow):
         if not self.validate_paths():
             return
 
-        # 收集所有任务
         self.tasks = []
         for zone in self.drop_zones:
             if zone.output_path.text() and zone.files:
@@ -383,7 +398,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "没有需要复制的文件！")
             return
 
-        # 初始化复制状态
         self.total_files = len(self.tasks)
         self.completed_files = 0
         self.errors = []
@@ -392,7 +406,6 @@ class MainWindow(QMainWindow):
         self.copy_btn.setEnabled(False)
         self.add_zone_btn.setEnabled(False)
 
-        # 启动线程池
         self.max_threads = min(self.thread_pool.maxThreadCount(), 8)
         self.running_tasks = 0
         self._schedule_tasks()
@@ -412,7 +425,6 @@ class MainWindow(QMainWindow):
         progress = int((self.completed_files / self.total_files) * 100)
         self.progress_bar.setValue(progress)
 
-        # 更新进度信息
         elapsed = time.time() - self.start_time
         if elapsed > 0:
             speed = self.completed_files / elapsed
@@ -422,22 +434,19 @@ class MainWindow(QMainWindow):
                 f"进度: {progress}% - 剩余时间: {time_str} - 速度: {speed:.1f} 文件/秒"
             )
 
-        # 继续调度任务
         self._schedule_tasks()
 
-        # 完成处理
         if self.completed_files == self.total_files:
             self.copy_btn.setEnabled(True)
             self.add_zone_btn.setEnabled(True)
             self.progress_bar.setFormat("复制完成！")
 
-            # 清空文件但保留路径
             for zone in self.drop_zones:
                 zone.files = []
                 zone.drop_area.label.setText("拖放文件到这里")
                 zone.file_list.clear()
+                zone.show_preview_checkbox.setEnabled(False)
 
-            # 显示汇总信息
             msg = []
             if self.errors:
                 msg.append(f"成功复制: {self.total_files - len(self.errors)} 文件")
@@ -461,8 +470,8 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     QMessageBox.critical(self, "错误", f"无法创建目录 {path}：{str(e)}")
                     return False
-        if invalid_zones:
-            QMessageBox.warning(self, "警告", f"区域 {', '.join(invalid_zones)} 的输出路径未设置！")
+                if invalid_zones:
+                    QMessageBox.warning(self, "警告", f"区域 {', '.join(invalid_zones)} 的输出路径未设置！")
             return False
         return True
 

@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --icon=icon.ico file_copy_tool.py
+pyinstaller --onefile --windowed --icon=app.ico DropCopy.py
