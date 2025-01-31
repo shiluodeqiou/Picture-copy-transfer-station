@@ -50,7 +50,9 @@ class FileDropArea(QGroupBox):
         files = [url.toLocalFile() for url in urls if os.path.isfile(url.toLocalFile())]
         if files:
             self.filesDropped.emit(files)
-            self.label.setText(f"已选择 {len(files)} 个文件")
+            # 更新显示的文件数量
+            total_files = len(files) + int(self.label.text().split(" ")[-2]) if "已选择" in self.label.text() else len(files)
+            self.label.setText(f"已选择 {total_files} 个文件")
         else:
             QMessageBox.warning(self, "警告", "拖放的文件无效，请检查！")
         event.acceptProposedAction()
@@ -108,7 +110,12 @@ class DropZoneWidget(QWidget):
         self.setLayout(layout)
 
     def handle_files_dropped(self, files):
-        self.files = files
+        # 只添加不存在于已有列表中的文件
+        new_files = [file for file in files if file not in self.files]
+        self.files.extend(new_files)
+        # 更新显示的文件数量
+        total_files = len(self.files)
+        self.drop_area.label.setText(f"已选择 {total_files} 个文件")
 
     def select_output_path(self):
         path = QFileDialog.getExistingDirectory(self, "选择输出目录")
@@ -125,7 +132,7 @@ class DropZoneWidget(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("多线程文件复制工具")
+        self.setWindowTitle("文件复制中转站")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("""
             QPushButton {
@@ -140,6 +147,12 @@ class MainWindow(QMainWindow):
                 font-size: 12px;
             }
         """)
+
+        # 加载图标文件
+        icon_path = "app.ico"  # 替换为你的图标文件路径
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            self.setWindowIcon(icon)
 
         self.main_widget = QWidget()
         self.setCentralWidget(self.main_widget)
