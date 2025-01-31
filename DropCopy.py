@@ -309,7 +309,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.main_widget)
 
         self.layout = QVBoxLayout()
-        self.drop_zones = []
 
         # 控制按钮
         self.control_layout = QHBoxLayout()
@@ -325,8 +324,16 @@ class MainWindow(QMainWindow):
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
+        # 创建滚动区域
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_area.setWidget(self.scroll_widget)
+
         self.layout.addLayout(self.control_layout)
         self.layout.addWidget(self.progress_bar)
+        self.layout.addWidget(self.scroll_area)
         self.main_widget.setLayout(self.layout)
 
         # 信号连接
@@ -335,6 +342,7 @@ class MainWindow(QMainWindow):
         self.thread_pool = QThreadPool.globalInstance()
 
         # 初始化
+        self.drop_zones = []
         self.add_drop_zone()
         self.errors = []
         self.tasks = []
@@ -342,7 +350,7 @@ class MainWindow(QMainWindow):
     def add_drop_zone(self):
         zone = DropZoneWidget()
         self.drop_zones.append(zone)
-        self.layout.insertWidget(len(self.drop_zones), zone)
+        self.scroll_layout.addWidget(zone)
 
     def start_copy(self):
         if not self.validate_paths():
