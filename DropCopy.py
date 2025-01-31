@@ -184,12 +184,17 @@ class DropZoneWidget(QWidget):
         self.sort_files_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
         self.sort_files_btn.clicked.connect(self.sort_files)
 
+        self.show_preview_checkbox = QCheckBox("显示文件预览")
+        self.show_preview_checkbox.setChecked(True)
+        self.show_preview_checkbox.stateChanged.connect(self.toggle_preview)
+
         self.output_layout.addWidget(self.output_path)
         self.output_layout.addWidget(self.browse_btn)
         self.output_layout.addWidget(self.delete_btn)
         self.output_layout.addWidget(self.select_files_btn)
         self.output_layout.addWidget(self.clear_files_btn)
         self.output_layout.addWidget(self.sort_files_btn)
+        self.output_layout.addWidget(self.show_preview_checkbox)
 
         self.file_list = QListWidget()
         self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -263,6 +268,12 @@ class DropZoneWidget(QWidget):
         file = self.files[row]
         clipboard = QApplication.clipboard()
         clipboard.setText(file)
+
+    def toggle_preview(self, state):
+        if state == Qt.Checked:
+            self.file_list.show()
+        else:
+            self.file_list.hide()
 
 
 class MainWindow(QMainWindow):
