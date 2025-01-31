@@ -240,6 +240,7 @@ class DropZoneWidget(QWidget):
         self.output_layout.addWidget(self.show_preview_checkbox)
 
         self.file_list = QListWidget()
+        self.file_list.setSelectionMode(QListWidget.ExtendedSelection)  # 启用扩展选择模式
         self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self.show_context_menu)
         self.file_list.hide()
@@ -251,7 +252,42 @@ class DropZoneWidget(QWidget):
 
         self.output_path.textChanged.connect(self.update_drop_area_label)
 
-# 添加新的方法实现
+    # 添加新的方法实现
+    def keyPressEvent(self, event):
+        """处理键盘事件"""
+        if event.key() == Qt.Key_Delete:
+            self.delete_selected_files()
+        else:
+            super().keyPressEvent(event)
+
+    def delete_selected_files(self):
+        """删除选中的多个文件"""
+        selected_items = self.file_list.selectedItems()
+        if not selected_items:
+            return
+
+        # 获取要删除的文件数量
+        delete_count = len(selected_items)
+        reply = QMessageBox.question(
+            self,
+            "确认删除",
+            f"确定要删除选中的 {delete_count} 个文件吗？",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        # 获取要删除的行号（逆序处理防止索引变化）
+        rows = sorted([self.file_list.row(item) for item in selected_items], reverse=True)
+        for row in rows:
+            self.files.pop(row)
+            self.file_list.takeItem(row)
+
+        self.update_drop_area_label()
+        if not self.files:
+            self.show_preview_checkbox.setEnabled(False)
+
+
     def import_paths(self):
         """从文件导入路径"""
         path, _ = QFileDialog.getOpenFileName(
@@ -482,26 +518,60 @@ class DropZoneWidget(QWidget):
             self.file_list.addItem(os.path.basename(file))
 
     def show_context_menu(self, pos):
-        """显示右键菜单"""
-        index = self.file_list.indexAt(pos)
-        if index.isValid():
-            menu = QMenu(self)  # 必须先创建menu实例
-            # 创建菜单项
-            delete_action = QAction("删除", self)
-            copy_path_action = QAction("复制路径", self)
-            export_action = QAction("导出所有路径", self)
-            
-            # 添加动作
-            menu.addAction(delete_action)
-            menu.addAction(copy_path_action)
-            menu.addAction(export_action)
-            
-            # 连接信号
-            delete_action.triggered.connect(lambda: self.delete_file(index.row()))
-            copy_path_action.triggered.connect(lambda: self.copy_file_path(index.row()))
-            export_action.triggered.connect(self.export_paths)
-            
-            menu.exec_(self.file_list.mapToGlobal(pos))
+        """显示右键菜单（支持多选操作）"""
+        selected_items = self.file_list.selectedItems()
+        if not selected_items:
+            return
+
+        menu = QMenu(self)
+        
+        # 删除操作（支持多选）
+        delete_action = QAction(f"删除选中项（{len(selected_items)}个）", self)
+        delete_action.triggered.connect(self.delete_selected_files)
+        menu.addAction(delete_action)
+
+        # 复制路径操作（仅单选时可用）
+        if len(selected_items) == 1:
+            copy_action = QAction("复制路径", self)
+            copy_action.triggered.connect(lambda: self.copy_file_path(self.file_list.row(selected_items[0])))
+            menu.addAction(copy_action)
+
+        # 批量导出操作
+        export_action = QAction("导出选中路径" if len(selected_items) > 1 else "导出所有路径", self)
+        export_action.triggered.connect(lambda: self.export_selected_paths(selected_items))
+        menu.addAction(export_action)
+
+        menu.exec_(self.file_list.mapToGlobal(pos))
+
+    def export_selected_paths(self, selected_items):
+        """导出选中路径"""
+        selected_files = [self.files[self.file_list.row(item)] for item in selected_items]
+        
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "保存路径文件",
+            f"文件路径_{time.strftime('%Y%m%d%H%M%S')}.txt",
+            "文本文件 (*.txt);;所有文件 (*)"
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(selected_files))
+            QMessageBox.information(
+                self,
+                "导出成功",
+                f"成功导出 {len(selected_files)} 条路径！",
+                QMessageBox.Ok
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "导出失败",
+                f"保存文件时出错：\n{str(e)}",
+                QMessageBox.Ok
+            )
 
     def delete_file(self, row):
         """删除指定文件"""
