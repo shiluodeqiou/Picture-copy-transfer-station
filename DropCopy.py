@@ -7,6 +7,8 @@ import time
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+import unittest
+from unittest.mock import patch
 
 
 def generate_suffix():
@@ -292,10 +294,13 @@ class DropZoneWidget(QWidget):
         clipboard.setText(file)
 
     def toggle_preview(self, state):
+        print(f"toggle_preview called with state: {state}")
         if state == Qt.Checked:
             self.file_list.show()
+            print(f"file_list is visible: {self.file_list.isVisible()}")
         else:
             self.file_list.hide()
+            print(f"file_list is visible: {self.file_list.isVisible()}")
 
 
 class MainWindow(QMainWindow):
@@ -472,7 +477,7 @@ class MainWindow(QMainWindow):
             if not path:
                 invalid_zones.append(str(idx))
                 continue
-                
+
             try:
                 os.makedirs(path, exist_ok=True)
                 if not os.path.isdir(path):
@@ -484,7 +489,7 @@ class MainWindow(QMainWindow):
 
         if invalid_zones:
             QMessageBox.warning(
-                self, 
+                self,
                 "路径错误",
                 f"以下区域存在问题：{', '.join(invalid_zones)}\n"
                 "请确保所有区域都设置了有效的输出目录"
@@ -501,3 +506,5 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
+
