@@ -40,7 +40,7 @@ class TestFileCopyApp(unittest.TestCase):
     def test_CopyWorker_generate_unique_filename(self):
         print("开始测试 CopyWorker 的 generate_unique_filename 功能...")
         src = "test_src.txt"
-        dst = os.path.abspath("test_dst.txt")  # 使用绝对路径
+        dst = "test_dst.txt"
         worker = CopyWorker(src, dst)
         unique_dst = worker.generate_unique_filename()
         try:
@@ -210,11 +210,10 @@ class TestFileCopyApp(unittest.TestCase):
         # 创建测试目标目录
         test_dst_dir = "test_destination_dir"
         os.makedirs(test_dst_dir, exist_ok=True)
-        test_base_name = os.path.basename(test_src)
+        test_dst = os.path.join(test_dst_dir, os.path.basename(test_src))
 
-        # 创建 CopyWorker 实例（使用基础文件名）
-        base_dst = os.path.join(test_dst_dir, test_base_name)
-        worker = CopyWorker(test_src, base_dst)
+        # 创建 CopyWorker 实例
+        worker = CopyWorker(test_src, test_dst)
 
         # 模拟信号连接
         progress_mock = MagicMock()
@@ -222,19 +221,23 @@ class TestFileCopyApp(unittest.TestCase):
         worker.signals.progress_signal.connect(progress_mock)
         worker.signals.error_signal.connect(error_mock)
 
+        print(f"源文件: {test_src}")
+        print(f"目标文件: {test_dst}")
+
         # 运行复制任务
         try:
             worker.run()
+            print("文件复制成功完成。")
         except Exception as e:
+            print(f"文件复制失败: {e}")
             self.fail(f"文件复制失败: {e}")
 
-        # 检查目标目录中是否存在匹配的文件
-        copied_files = [
-            f for f in os.listdir(test_dst_dir)
-            if f.startswith(test_base_name.split('.')[0])
-        ]
+        # 检查文件是否复制成功
         try:
-            self.assertTrue(len(copied_files) > 0, "未找到符合规则的目标文件")
+            self.assertTrue(os.path.exists(test_dst), f"目标文件 {test_dst} 不存在")
+            # 检查信号是否按预期发射
+            progress_mock.assert_called_once()
+            error_mock.assert_not_called()
             print("文件复制功能测试通过。")
         except AssertionError as e:
             print(f"文件复制功能测试失败: {e}")
