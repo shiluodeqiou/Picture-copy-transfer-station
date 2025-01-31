@@ -62,21 +62,21 @@ class FileDropArea(QGroupBox):
         urls = event.mimeData().urls()
         valid_files = []
         invalid_files = []
-        
+
         for url in urls:
             file_path = url.toLocalFile()
             if os.path.isfile(file_path):
                 valid_files.append(file_path)
             else:
                 invalid_files.append(file_path)
-        
+
         if valid_files:
             self.filesDropped.emit(valid_files)
-        
+
         if invalid_files:
-            QMessageBox.warning(self, "警告", 
-                f"{len(invalid_files)}个无效文件已忽略\n示例：{invalid_files[:3]}...")
-        
+            QMessageBox.warning(self, "警告",
+                                f"{len(invalid_files)}个无效文件已忽略\n示例：{invalid_files[:3]}...")
+
         self.setStyleSheet("""
             QGroupBox {
                 border: 2px dashed #aaa;
@@ -111,7 +111,7 @@ class CopyWorker(QRunnable):
     def generate_unique_filename(self):
         if not os.path.exists(self.dst):
             return self.dst
-            
+
         counter = 1
         base, ext = os.path.splitext(self.dst)
         while True:
@@ -166,7 +166,7 @@ class DropZoneWidget(QWidget):
         if not added:
             QMessageBox.information(self, "提示", "没有新增文件（已过滤重复项）")
             return
-            
+
         self.files.extend(added)
         self.drop_area.label.setText(f"已选择 {len(self.files)} 个文件")
 
@@ -177,9 +177,9 @@ class DropZoneWidget(QWidget):
 
     def delete_self(self):
         if QMessageBox.question(
-            self, "确认删除", 
-            "确定要删除此区域吗？已选择的文件将丢失！",
-            QMessageBox.Yes | QMessageBox.No
+                self, "确认删除",
+                "确定要删除此区域吗？已选择的文件将丢失！",
+                QMessageBox.Yes | QMessageBox.No
         ) == QMessageBox.Yes:
             self.setParent(None)
             self.deleteLater()
@@ -187,75 +187,77 @@ class DropZoneWidget(QWidget):
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        try:
-            super().__init__()
-            self.setWindowTitle("文件复制工具")
-            self.setGeometry(100, 100, 800, 600)
-            self.setStyleSheet("""
-                QMainWindow {
-                    background-color: #f8f9fa;
-                }
-                QPushButton {
-                    background-color: #e9ecef;
-                    border: 1px solid #ced4da;
-                    border-radius: 4px;
-                    padding: 6px 12px;
-                }
-                QPushButton:hover {
-                    background-color: #dee2e6;
-                }
-                QLineEdit {
-                    border: 1px solid #ced4da;
-                    border-radius: 4px;
-                    padding: 6px;
-                }
-                QProgressBar {
-                    border: 1px solid #ced4da;
-                    border-radius: 4px;
-                    text-align: center;
-                }
-                QProgressBar::chunk {
-                    background-color: #0d6efd;
-                    border-radius: 3px;
-                }
-            """)
+        super().__init__()
+        self.setWindowTitle("文件复制工具")
+        self.setGeometry(100, 100, 800, 600)
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f8f9fa;
+            }
+            QPushButton {
+                background-color: #e9ecef;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #dee2e6;
+            }
+            QLineEdit {
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                padding: 6px;
+            }
+            QProgressBar {
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background-color: #0d6efd;
+                border-radius: 3px;
+            }
+        """)
 
-            self.main_widget = QWidget()
-            self.setCentralWidget(self.main_widget)
+        # 加载图标文件
+        icon_path = "app.ico"
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            self.setWindowIcon(icon)
 
-            self.layout = QVBoxLayout()
-            self.drop_zones = []
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
 
-            # 控制按钮
-            self.control_layout = QHBoxLayout()
-            self.add_zone_btn = QPushButton("➕ 添加区域")
-            self.copy_btn = QPushButton("🚀 开始复制")
-            self.control_layout.addWidget(self.add_zone_btn)
-            self.control_layout.addStretch()
-            self.control_layout.addWidget(self.copy_btn)
+        self.layout = QVBoxLayout()
+        self.drop_zones = []
 
-            # 进度条
-            self.progress_bar = QProgressBar()
-            self.progress_bar.setFixedHeight(24)
-            self.progress_bar.setRange(0, 100)
-            self.progress_bar.setValue(0)
+        # 控制按钮
+        self.control_layout = QHBoxLayout()
+        self.add_zone_btn = QPushButton("➕ 添加区域")
+        self.copy_btn = QPushButton("🚀 开始复制")
+        self.control_layout.addWidget(self.add_zone_btn)
+        self.control_layout.addStretch()
+        self.control_layout.addWidget(self.copy_btn)
 
-            self.layout.addLayout(self.control_layout)
-            self.layout.addWidget(self.progress_bar)
-            self.main_widget.setLayout(self.layout)
+        # 进度条
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedHeight(24)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
 
-            # 信号连接
-            self.add_zone_btn.clicked.connect(self.add_drop_zone)
-            self.copy_btn.clicked.connect(self.start_copy)
-            self.thread_pool = QThreadPool.globalInstance()
+        self.layout.addLayout(self.control_layout)
+        self.layout.addWidget(self.progress_bar)
+        self.main_widget.setLayout(self.layout)
 
-            # 初始化
-            self.add_drop_zone()
-            self.errors = []
-            self.tasks = []
-        except Exception as e:
-            with open('error.log', 'w', encoding='utf-8') as f:
-                f.write(str(e))
+        # 信号连接
+        self.add_zone_btn.clicked.connect(self.add_drop_zone)
+        self.copy_btn.clicked.connect(self.start_copy)
+        self.thread_pool = QThreadPool.globalInstance()
+
+        # 初始化
+        self.add_drop_zone()
+        self.errors = []
+        self.tasks = []
 
     def add_drop_zone(self):
         zone = DropZoneWidget()
@@ -272,7 +274,7 @@ class MainWindow(QMainWindow):
             if zone.output_path.text() and zone.files:
                 output_path = zone.output_path.text()
                 os.makedirs(output_path, exist_ok=True)
-                
+
                 for src in zone.files:
                     if os.path.isfile(src):
                         dst = os.path.join(output_path, os.path.basename(src))
@@ -316,7 +318,7 @@ class MainWindow(QMainWindow):
         if elapsed > 0:
             speed = self.completed_files / elapsed
             remaining = (self.total_files - self.completed_files) / speed
-            time_str = f"{int(remaining//60):02d}:{int(remaining%60):02d}"
+            time_str = f"{int(remaining // 60):02d}:{int(remaining % 60):02d}"
             self.progress_bar.setFormat(
                 f"进度: {progress}% - 剩余时间: {time_str} - 速度: {speed:.1f} 文件/秒"
             )
@@ -329,12 +331,12 @@ class MainWindow(QMainWindow):
             self.copy_btn.setEnabled(True)
             self.add_zone_btn.setEnabled(True)
             self.progress_bar.setFormat("复制完成！")
-            
+
             # 清空文件但保留路径
             for zone in self.drop_zones:
                 zone.files = []
                 zone.drop_area.label.setText("拖放文件到这里")
-            
+
             # 显示汇总信息
             msg = []
             if self.errors:
@@ -342,7 +344,7 @@ class MainWindow(QMainWindow):
                 msg.append(f"失败: {len(self.errors)} 文件")
                 msg.append("\n错误详情：\n" + "\n".join(self.errors[:5]))
                 if len(self.errors) > 5:
-                    msg.append(f"...及其他 {len(self.errors)-5} 个错误")
+                    msg.append(f"...及其他 {len(self.errors) - 5} 个错误")
                 QMessageBox.critical(self, "复制结果", "\n".join(msg))
             else:
                 QMessageBox.information(self, "完成", f"成功复制 {self.total_files} 个文件！")
