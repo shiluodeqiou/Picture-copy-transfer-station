@@ -383,12 +383,11 @@ class MainWindow(QMainWindow):
         if not self.validate_paths():
             return
 
+        # 生成任务列表
         self.tasks = []
         for zone in self.drop_zones:
-            if zone.output_path.text() and zone.files:
-                output_path = zone.output_path.text()
-                os.makedirs(output_path, exist_ok=True)
-
+            output_path = zone.output_path.text().strip()
+            if output_path and zone.files:
                 for src in zone.files:
                     if os.path.isfile(src):
                         dst = os.path.join(output_path, os.path.basename(src))
@@ -398,6 +397,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "没有需要复制的文件！")
             return
 
+        # 初始化状态
         self.total_files = len(self.tasks)
         self.completed_files = 0
         self.errors = []
@@ -406,6 +406,7 @@ class MainWindow(QMainWindow):
         self.copy_btn.setEnabled(False)
         self.add_zone_btn.setEnabled(False)
 
+        # 启动线程池
         self.max_threads = min(self.thread_pool.maxThreadCount(), 8)
         self.running_tasks = 0
         self._schedule_tasks()
@@ -425,6 +426,7 @@ class MainWindow(QMainWindow):
         progress = int((self.completed_files / self.total_files) * 100)
         self.progress_bar.setValue(progress)
 
+        # 计算速度和时间
         elapsed = time.time() - self.start_time
         if elapsed > 0:
             speed = self.completed_files / elapsed
@@ -434,44 +436,59 @@ class MainWindow(QMainWindow):
                 f"进度: {progress}% - 剩余时间: {time_str} - 速度: {speed:.1f} 文件/秒"
             )
 
+        # 继续调度新任务
         self._schedule_tasks()
 
+        # 完成处理
         if self.completed_files == self.total_files:
             self.copy_btn.setEnabled(True)
             self.add_zone_btn.setEnabled(True)
             self.progress_bar.setFormat("复制完成！")
 
+            # 清空文件但保留路径
             for zone in self.drop_zones:
                 zone.files = []
-                zone.drop_area.label.setText("拖放文件到这里")
                 zone.file_list.clear()
+                zone.update_drop_area_label()
                 zone.show_preview_checkbox.setEnabled(False)
 
+            # 显示结果
             msg = []
             if self.errors:
-                msg.append(f"成功复制: {self.total_files - len(self.errors)} 文件")
-                msg.append(f"失败: {len(self.errors)} 文件")
+                success = self.total_files - len(self.errors)
+                msg.append(f"✅ 成功复制: {success} 文件")
+                msg.append(f"❌ 失败: {len(self.errors)} 文件")
                 msg.append("\n错误详情：\n" + "\n".join(self.errors[:5]))
                 if len(self.errors) > 5:
-                    msg.append(f"...及其他 {len(self.errors) - 5} 个错误")
+                    msg.append(f"...及其他 {len(self.errors)-5} 个错误")
                 QMessageBox.critical(self, "复制结果", "\n".join(msg))
             else:
-                QMessageBox.information(self, "完成", f"成功复制 {self.total_files} 个文件！")
+                QMessageBox.information(self, "完成", f"✅ 成功复制 {self.total_files} 个文件！")
 
     def validate_paths(self):
         invalid_zones = []
         for idx, zone in enumerate(self.drop_zones, 1):
-            path = zone.output_path.text()
-            if not path.strip():
+            path = zone.output_path.text().strip()
+            if not path:
                 invalid_zones.append(str(idx))
-            elif not os.path.exists(path):
-                try:
-                    os.makedirs(path, exist_ok=True)
-                except Exception as e:
-                    QMessageBox.critical(self, "错误", f"无法创建目录 {path}：{str(e)}")
-                    return False
-                if invalid_zones:
-                    QMessageBox.warning(self, "警告", f"区域 {', '.join(invalid_zones)} 的输出路径未设置！")
+                continue
+                
+            try:
+                os.makedirs(path, exist_ok=True)
+                if not os.path.isdir(path):
+                    invalid_zones.append(str(idx))
+                    QMessageBox.critical(self, "错误", f"路径不是目录: {path}")
+            except Exception as e:
+                invalid_zones.append(str(idx))
+                QMessageBox.critical(self, "错误", f"无法创建目录 {path}：{str(e)}")
+
+        if invalid_zones:
+            QMessageBox.warning(
+                self, 
+                "路径错误",
+                f"以下区域存在问题：{', '.join(invalid_zones)}\n"
+                "请确保所有区域都设置了有效的输出目录"
+            )
             return False
         return True
 
