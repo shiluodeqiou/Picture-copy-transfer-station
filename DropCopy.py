@@ -172,12 +172,32 @@ class DropZoneWidget(QWidget):
         """)
         self.delete_btn.clicked.connect(self.delete_self)
 
+        self.select_files_btn = QPushButton("批量选择文件")
+        self.select_files_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
+        self.select_files_btn.clicked.connect(self.select_files)
+
+        self.clear_files_btn = QPushButton("清空文件")
+        self.clear_files_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
+        self.clear_files_btn.clicked.connect(self.clear_files)
+
+        self.sort_files_btn = QPushButton("按文件名排序")
+        self.sort_files_btn.setStyleSheet("QPushButton { padding: 5px 12px; }")
+        self.sort_files_btn.clicked.connect(self.sort_files)
+
         self.output_layout.addWidget(self.output_path)
         self.output_layout.addWidget(self.browse_btn)
         self.output_layout.addWidget(self.delete_btn)
+        self.output_layout.addWidget(self.select_files_btn)
+        self.output_layout.addWidget(self.clear_files_btn)
+        self.output_layout.addWidget(self.sort_files_btn)
+
+        self.file_list = QListWidget()
+        self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.file_list.customContextMenuRequested.connect(self.show_context_menu)
 
         layout.addWidget(self.drop_area)
         layout.addLayout(self.output_layout)
+        layout.addWidget(self.file_list)
         self.setLayout(layout)
 
     def handle_files_dropped(self, new_files):
@@ -189,6 +209,8 @@ class DropZoneWidget(QWidget):
 
         self.files.extend(added)
         self.drop_area.label.setText(f"已选择 {len(self.files)} 个文件")
+        for file in added:
+            self.file_list.addItem(os.path.basename(file))
 
     def select_output_path(self):
         path = QFileDialog.getExistingDirectory(self, "选择输出目录")
@@ -203,6 +225,44 @@ class DropZoneWidget(QWidget):
         ) == QMessageBox.Yes:
             self.setParent(None)
             self.deleteLater()
+
+    def select_files(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "选择文件")
+        if files:
+            self.handle_files_dropped(files)
+
+    def clear_files(self):
+        self.files = []
+        self.drop_area.label.setText("拖放文件到这里")
+        self.file_list.clear()
+
+    def sort_files(self):
+        self.files.sort()
+        self.file_list.clear()
+        for file in self.files:
+            self.file_list.addItem(os.path.basename(file))
+
+    def show_context_menu(self, pos):
+        index = self.file_list.indexAt(pos)
+        if index.isValid():
+            menu = QMenu(self)
+            delete_action = QAction("删除", self)
+            delete_action.triggered.connect(lambda: self.delete_file(index.row()))
+            menu.addAction(delete_action)
+            copy_path_action = QAction("复制路径", self)
+            copy_path_action.triggered.connect(lambda: self.copy_file_path(index.row()))
+            menu.addAction(copy_path_action)
+            menu.exec_(self.file_list.mapToGlobal(pos))
+
+    def delete_file(self, row):
+        file = self.files.pop(row)
+        self.file_list.takeItem(row)
+        self.drop_area.label.setText(f"已选择 {len(self.files)} 个文件")
+
+    def copy_file_path(self, row):
+        file = self.files[row]
+        clipboard = QApplication.clipboard()
+        clipboard.setText(file)
 
 
 class MainWindow(QMainWindow):
@@ -356,6 +416,7 @@ class MainWindow(QMainWindow):
             for zone in self.drop_zones:
                 zone.files = []
                 zone.drop_area.label.setText("拖放文件到这里")
+                zone.file_list.clear()
 
             # 显示汇总信息
             msg = []
